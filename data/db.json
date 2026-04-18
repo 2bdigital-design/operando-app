@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "id": "user_gestor_2",
+      "name": "2B Digital",
+      "email": "work.2bdigital@gmail.com",
+      "password": "12345678",
+      "role": "GESTOR",
+      "avatar": "2B",
+      "createdAt": "2026-04-17T00:00:00.000Z"
+    }
+  ],
+  "rooms": [],
+  "projects": [],
+  "logs": [],
+  "comments": []
+}
