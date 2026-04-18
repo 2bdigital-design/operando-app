@@ -27,6 +27,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [session, setSession] = useState<Session | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
@@ -34,6 +35,11 @@ export default function Sidebar() {
       else router.push('/')
     })
   }, [router])
+
+  // Close sidebar whenever route changes
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -43,54 +49,73 @@ export default function Sidebar() {
   const links = session?.role === 'GESTOR' ? gestorLinks : colaboradorLinks
 
   return (
-    <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', padding: '24px 16px' }}>
-      {/* Logo */}
-      <div style={{ padding: '0 8px', marginBottom: 32 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'white', letterSpacing: '-0.3px' }}>OPERANDO</div>
-        <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 2, fontWeight: 400 }}>Sistema Operacional</div>
-      </div>
+    <>
+      {/* Hamburger button — only visible on mobile */}
+      <button
+        className="mobile-hamburger"
+        onClick={() => setMobileOpen(o => !o)}
+        aria-label="Abrir menu"
+      >
+        <span className={`hamburger-line ${mobileOpen ? 'open-1' : ''}`} />
+        <span className={`hamburger-line ${mobileOpen ? 'open-2' : ''}`} />
+        <span className={`hamburger-line ${mobileOpen ? 'open-3' : ''}`} />
+      </button>
 
-      {/* Role badge */}
-      {session && (
-        <div style={{ padding: '0 8px', marginBottom: 24 }}>
-          <span style={{
-            display: 'inline-block', padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-            background: session.role === 'GESTOR' ? 'rgba(239,68,68,0.18)' : 'rgba(59,130,246,0.18)',
-            color: session.role === 'GESTOR' ? '#fca5a5' : '#93c5fd',
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-          }}>
-            {session.role === 'GESTOR' ? 'Gestor' : 'Colaborador'}
-          </span>
+      {/* Backdrop */}
+      <div
+        className={`sidebar-backdrop ${mobileOpen ? 'visible' : ''}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
+      <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`} style={{ display: 'flex', flexDirection: 'column', padding: '24px 16px' }}>
+        {/* Logo */}
+        <div style={{ padding: '0 8px', marginBottom: 32 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'white', letterSpacing: '-0.3px' }}>OPERANDO</div>
+          <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 2, fontWeight: 400 }}>Sistema Operacional</div>
         </div>
-      )}
 
-      {/* Navigation */}
-      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {links.map(link => {
-          const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href))
-          return (
-            <a key={link.href} href={link.href} className={`sidebar-link ${isActive ? 'active' : ''}`}>
-              {link.label}
-            </a>
-          )
-        })}
-      </nav>
-
-      {/* User + Logout */}
-      {session && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px', marginBottom: 4 }}>
-            <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>{session.avatar}</div>
-            <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div style={{ color: 'white', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.name}</div>
-              <div style={{ color: '#93c5fd', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.email}</div>
-            </div>
+        {/* Role badge */}
+        {session && (
+          <div style={{ padding: '0 8px', marginBottom: 24 }}>
+            <span style={{
+              display: 'inline-block', padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+              background: session.role === 'GESTOR' ? 'rgba(239,68,68,0.18)' : 'rgba(59,130,246,0.18)',
+              color: session.role === 'GESTOR' ? '#fca5a5' : '#93c5fd',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+            }}>
+              {session.role === 'GESTOR' ? 'Gestor' : 'Colaborador'}
+            </span>
           </div>
-          <button onClick={logout} className="sidebar-link" style={{ width: '100%', cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left', color: '#93c5fd' }}>
-            Sair
-          </button>
-        </div>
-      )}
-    </aside>
+        )}
+
+        {/* Navigation */}
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {links.map(link => {
+            const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href))
+            return (
+              <a key={link.href} href={link.href} className={`sidebar-link ${isActive ? 'active' : ''}`}>
+                {link.label}
+              </a>
+            )
+          })}
+        </nav>
+
+        {/* User + Logout */}
+        {session && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px', marginBottom: 4 }}>
+              <div className="avatar" style={{ width: 32, height: 32, fontSize: 11, flexShrink: 0 }}>{session.avatar}</div>
+              <div style={{ overflow: 'hidden', flex: 1 }}>
+                <div style={{ color: 'white', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.name}</div>
+                <div style={{ color: '#93c5fd', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.email}</div>
+              </div>
+            </div>
+            <button onClick={logout} className="sidebar-link" style={{ width: '100%', cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left', color: '#93c5fd' }}>
+              Sair
+            </button>
+          </div>
+        )}
+      </aside>
+    </>
   )
 }
