@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge'
 import { formatDate, formatDateTime, STATUS_LABELS } from '@/lib/utils'
-import { ProjectStatus } from '@/lib/db'
+import { ProjectStatus, TaskStatus } from '@/lib/db'
 
 const STATUS_FLOW: Record<ProjectStatus, { next: ProjectStatus | null; btnLabel: string }> = {
   DISPONIVEL: { next: null, btnLabel: '' },
@@ -17,12 +17,42 @@ const STATUS_FLOW: Record<ProjectStatus, { next: ProjectStatus | null; btnLabel:
   ATRASADO:   { next: null, btnLabel: '' },
 }
 
+const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  PENDENTE: 'Pendente',
+  EM_PRODUCAO: 'Em Produção',
+  EM_REVISAO: 'Em Revisão',
+  APROVADO: 'Aprovado',
+  REPROVADO: 'Reprovado',
+}
+
+const TASK_STATUS_COLORS: Record<TaskStatus, { bg: string; text: string }> = {
+  PENDENTE:    { bg: 'rgba(100,116,139,0.15)', text: '#94a3b8' },
+  EM_PRODUCAO: { bg: 'rgba(6,182,212,0.15)',   text: '#22d3ee' },
+  EM_REVISAO:  { bg: 'rgba(245,158,11,0.15)',   text: '#fbbf24' },
+  APROVADO:    { bg: 'rgba(34,197,94,0.15)',    text: '#4ade80' },
+  REPROVADO:   { bg: 'rgba(239,68,68,0.15)',    text: '#f87171' },
+}
+
 const steps: ProjectStatus[] = ['DISPONIVEL','DELEGADO','CONFIRMADO','EM_PRODUCAO','EM_REVISAO','APROVADO','CONCLUIDO']
+
+function TaskStatusBadge({ status }: { status: TaskStatus }) {
+  const c = TASK_STATUS_COLORS[status]
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', padding: '3px 10px',
+      borderRadius: 999, fontSize: 11, fontWeight: 600,
+      background: c.bg, color: c.text,
+    }}>
+      {TASK_STATUS_LABELS[status]}
+    </span>
+  )
+}
 
 export default function ProjetoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const [project, setProject] = useState<any>(null)
+  const [tasks, setTasks] = useState<any[]>([])
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [comment, setComment] = useState('')
@@ -38,9 +68,27 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Task modal state
+  const [showCreateTask, setShowCreateTask] = useState(false)
+  const [taskForm, setTaskForm] = useState({
+    name: '', description: '', assignedToId: '',
+    deadline: '', deadlineTime: '18:00', startTime: '09:00', endTime: '11:00',
+  })
+  const [savingTask, setSavingTask] = useState(false)
+  const [taskError, setTaskError] = useState('')
+
+  // Reject task state
+  const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null)
+  const [rejectForm, setRejectForm] = useState({ comment: '', newDeadline: '' })
+
+  // Result link state
+  const [resultLinkTaskId, setResultLinkTaskId] = useState<string | null>(null)
+  const [resultLinkValue, setResultLinkValue] = useState('')
+
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (!d.error) setSession(d) })
     loadProject()
+    loadTasks()
   }, [id])
 
   async function loadProject() {
@@ -50,6 +98,11 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
     setProject(data)
     setProgress(data.progress)
     setLoading(false)
+  }
+
+  async function loadTasks() {
+    const res = await fetch(`/api/tasks?projectId=${id}`)
+    if (res.ok) setTasks(await res.json())
   }
 
   async function confirm() {
@@ -126,35 +179,88 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
     loadProject()
   }
 
+  async function createTask() {
+    setTaskError('')
+    if (!taskForm.name.trim()) { setTaskError('Nome é obrigatório'); return }
+    if (!taskForm.deadline) { setTaskError('Prazo é obrigatório'); return }
+    setSavingTask(true)
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...taskForm, projectId: id, assignedToId: taskForm.assignedToId || null }),
+    })
+    const data = await res.json()
+    setSavingTask(false)
+    if (!res.ok) { setTaskError(data.error || 'Erro ao criar tarefa'); return }
+    setShowCreateTask(false)
+    setTaskForm({ name: '', description: '', assignedToId: '', deadline: '', deadlineTime: '18:00', startTime: '09:00', endTime: '11:00' })
+    loadTasks()
+  }
+
+  async function advanceTaskStatus(taskId: string, status: TaskStatus, extra?: { rejectionComment?: string; rejectionNewDeadline?: string }) {
+    const res = await fetch(`/api/tasks/${taskId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, ...extra }),
+    })
+    if (res.ok) {
+      loadTasks()
+      setRejectingTaskId(null)
+      setRejectForm({ comment: '', newDeadline: '' })
+    } else {
+      const d = await res.json()
+      alert(d.error || 'Erro ao atualizar status')
+    }
+  }
+
+  async function saveResultLink(taskId: string) {
+    await fetch(`/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resultLink: resultLinkValue }),
+    })
+    setResultLinkTaskId(null)
+    setResultLinkValue('')
+    loadTasks()
+  }
+
+  async function deleteTask(taskId: string) {
+    if (!window.confirm('Eliminar esta tarefa?')) return
+    await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+    loadTasks()
+  }
+
   if (loading) return <div style={{ padding: 32, color: 'var(--text-muted)' }}>A carregar…</div>
   if (!project) return null
 
   const flow = STATUS_FLOW[project.status as ProjectStatus]
   const isMyProject = session?.userId === project.assignedToId
   const isGestor = session?.role === 'GESTOR'
+  const isLider = session?.role === 'LIDER'
+  const canApprove = isGestor || isLider
   const currentStep = steps.indexOf(project.status as ProjectStatus)
+  const canManageTasks = isGestor || isLider
+
+  // Which tasks are visible to this user
+  const visibleTasks = canManageTasks
+    ? tasks
+    : tasks.filter(t => t.assignedToId === session?.userId)
 
   return (
     <div style={{ padding: 32 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <button onClick={() => router.back()} className="btn-secondary" style={{ marginTop: 4, fontSize: 13 }}>
           ← Voltar
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'white', margin: 0 }}>{project.name}</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', margin: 0 }}>{project.name}</h1>
             <StatusBadge status={project.status} />
             <PriorityBadge priority={project.priority} />
           </div>
-          <div style={{ display: 'flex', gap: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-            <span>{project.client}</span>
-            {project.roomName && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: project.roomColor || '#1d4ed8' }} />
-                {project.roomName}
-              </span>
-            )}
+          <div style={{ display: 'flex', gap: 12, fontSize: 13, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+            <span>{project.clientName || project.client}</span>
             <span>Criado em {formatDate(project.createdAt)}</span>
           </div>
         </div>
@@ -176,20 +282,26 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
               {actionLoading ? 'A confirmar…' : 'Confirmar Responsabilidade'}
             </button>
           )}
-          {(isMyProject || isGestor) && flow?.next && project.status !== 'DELEGADO' && (
-            <button onClick={() => advance(flow.next!)} className="btn-primary" disabled={actionLoading} style={{ background: project.status === 'APROVADO' ? '#16a34a' : undefined }}>
+          {isMyProject && ['CONFIRMADO', 'EM_PRODUCAO'].includes(project.status) && flow?.next && (
+            <button onClick={() => advance(flow.next!)} className="btn-primary" disabled={actionLoading}>
               {actionLoading ? '…' : flow.btnLabel}
             </button>
           )}
-          {isGestor && project.status === 'EM_REVISAO' && (
+          {canApprove && ['EM_REVISAO', 'APROVADO'].includes(project.status) && flow?.next && (
+            <button onClick={() => advance(flow.next!)} className="btn-primary" disabled={actionLoading}
+              style={{ background: project.status === 'APROVADO' ? '#16a34a' : undefined }}>
+              {actionLoading ? '…' : flow.btnLabel}
+            </button>
+          )}
+          {canApprove && project.status === 'EM_REVISAO' && (
             <button onClick={() => advance('EM_PRODUCAO')} className="btn-secondary" disabled={actionLoading}>Devolver</button>
           )}
         </div>
       </div>
 
       {/* Status pipeline */}
-      <div className="card" style={{ marginBottom: 20, padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+      <div className="card" style={{ marginBottom: 20, padding: '20px 24px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', minWidth: 480 }}>
           <div style={{ position: 'absolute', top: 13, left: '3.5%', right: '3.5%', height: 2, background: 'var(--glass-border)' }} />
           <div style={{ position: 'absolute', top: 13, left: '3.5%', height: 2, background: '#1d4ed8', width: `${Math.max(0, currentStep / (steps.length - 1) * 93)}%`, transition: 'width 0.4s' }} />
           {steps.map((s, i) => {
@@ -206,7 +318,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
                 }}>
                   {done ? '✓' : i + 1}
                 </div>
-                <span style={{ fontSize: 11, color: active ? '#60a5fa' : done ? '#93c5fd' : '#64748b', fontWeight: active ? 700 : 400, textAlign: 'center', lineHeight: 1.3 }}>
+                <span style={{ fontSize: 10, color: active ? '#60a5fa' : done ? '#93c5fd' : '#64748b', fontWeight: active ? 700 : 400, textAlign: 'center', lineHeight: 1.3 }}>
                   {STATUS_LABELS[s]}
                 </span>
               </div>
@@ -226,7 +338,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
 
           {/* Details */}
           <div className="card">
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'white' }}>Detalhes</h2>
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'var(--text)' }}>Detalhes</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               {[
                 { label: 'Objetivo', value: project.objective, full: true },
@@ -248,7 +360,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
           {/* Attachments */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'white' }}>
+              <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
                 Anexos / Links
                 <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-faint)', marginLeft: 8 }}>{project.attachments?.length || 0}</span>
               </h2>
@@ -260,7 +372,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
                   <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(6,12,26,0.4)', borderRadius: 8, border: '1px solid var(--glass-border)' }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{att.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{att.label}</div>
                       <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#1d4ed8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                         {att.url}
                       </a>
@@ -278,13 +390,12 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            {/* Add link form */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-              <div style={{ flex: '0 0 180px' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '0 0 160px', minWidth: 130 }}>
                 <label className="label" style={{ fontSize: 11 }}>Etiqueta</label>
-                <input className="input" style={{ fontSize: 13 }} placeholder="Ex: Briefing, Drive…" value={newLink.label} onChange={e => setNewLink(p => ({ ...p, label: e.target.value }))} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAttachment())} />
+                <input className="input" style={{ fontSize: 13 }} placeholder="Ex: Briefing…" value={newLink.label} onChange={e => setNewLink(p => ({ ...p, label: e.target.value }))} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAttachment())} />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 130 }}>
                 <label className="label" style={{ fontSize: 11 }}>URL</label>
                 <input className="input" style={{ fontSize: 13 }} placeholder="https://" value={newLink.url} onChange={e => setNewLink(p => ({ ...p, url: e.target.value }))} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAttachment())} />
               </div>
@@ -298,7 +409,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
           {['CONFIRMADO','EM_PRODUCAO','EM_REVISAO','APROVADO'].includes(project.status) && (
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'white' }}>Progresso</h2>
+                <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Progresso</h2>
                 {(isMyProject || isGestor) && !editProgress && (
                   <button onClick={() => setEditProgress(true)} style={{ fontSize: 12, color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     Atualizar
@@ -330,10 +441,159 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
 
+          {/* ── TASKS SECTION ── */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+                Tarefas
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-faint)', marginLeft: 8 }}>{visibleTasks.length}</span>
+              </h2>
+              {canManageTasks && (
+                <button onClick={() => { setShowCreateTask(true); if (colaboradores.length === 0) { fetch('/api/users').then(r => r.json()).then(d => setColaboradores(d.filter((u: any) => u.role === 'COLABORADOR'))) } }} className="btn-primary" style={{ padding: '7px 14px', fontSize: 13 }}>
+                  + Criar Tarefa
+                </button>
+              )}
+            </div>
+
+            {visibleTasks.length === 0 ? (
+              <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: 0, textAlign: 'center', padding: '20px 0' }}>
+                {canManageTasks ? 'Nenhuma tarefa criada ainda.' : 'Não tens tarefas atribuídas neste projeto.'}
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {visibleTasks.map((t: any) => {
+                  const isMyTask = session?.userId === t.assignedToId
+                  return (
+                    <div key={t.id} style={{ background: 'rgba(6,12,26,0.4)', border: '1px solid var(--glass-border)', borderRadius: 10, padding: 14 }}>
+                      {/* Task header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14, marginBottom: 4 }}>{t.name}</div>
+                          {t.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{t.description}</div>}
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <TaskStatusBadge status={t.status} />
+                            {t.assignedToName && (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                                <div className="avatar" style={{ width: 18, height: 18, fontSize: 8 }}>{t.assignedToAvatar}</div>
+                                {t.assignedToName}
+                              </span>
+                            )}
+                            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                              {t.deadline} · {t.startTime}–{t.endTime}
+                            </span>
+                          </div>
+                        </div>
+                        {canManageTasks && (
+                          <button onClick={() => deleteTask(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', fontSize: 16, padding: '0 4px', flexShrink: 0 }}>×</button>
+                        )}
+                      </div>
+
+                      {/* Rejection info */}
+                      {t.rejectionComment && (
+                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 8, fontSize: 12 }}>
+                          <span style={{ color: '#f87171', fontWeight: 600 }}>Reprovado: </span>
+                          <span style={{ color: 'var(--text-muted)' }}>{t.rejectionComment}</span>
+                          {t.rejectionNewDeadline && (
+                            <span style={{ color: 'var(--text-muted)' }}> · Novo prazo: {t.rejectionNewDeadline}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Result link */}
+                      {t.resultLink && (
+                        <div style={{ marginBottom: 8 }}>
+                          <a href={t.resultLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#60a5fa', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            🔗 {t.resultLink}
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Edit result link */}
+                      {(isMyTask || canManageTasks) && resultLinkTaskId === t.id && (
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                          <input
+                            className="input"
+                            style={{ flex: 1, fontSize: 13 }}
+                            placeholder="https://link-do-resultado…"
+                            value={resultLinkValue}
+                            onChange={e => setResultLinkValue(e.target.value)}
+                          />
+                          <button onClick={() => saveResultLink(t.id)} className="btn-primary" style={{ padding: '7px 12px', fontSize: 12 }}>Guardar</button>
+                          <button onClick={() => setResultLinkTaskId(null)} className="btn-secondary" style={{ padding: '7px 12px', fontSize: 12 }}>×</button>
+                        </div>
+                      )}
+
+                      {/* Reject form */}
+                      {canManageTasks && rejectingTaskId === t.id && (
+                        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: 12, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div>
+                            <label className="label" style={{ fontSize: 11 }}>Motivo da Reprovação *</label>
+                            <input className="input" style={{ fontSize: 13 }} placeholder="Descreva o motivo…" value={rejectForm.comment} onChange={e => setRejectForm(p => ({ ...p, comment: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label className="label" style={{ fontSize: 11 }}>Novo Prazo *</label>
+                            <input type="date" className="input" style={{ fontSize: 13 }} value={rejectForm.newDeadline} onChange={e => setRejectForm(p => ({ ...p, newDeadline: e.target.value }))} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setRejectingTaskId(null)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>Cancelar</button>
+                            <button
+                              onClick={() => advanceTaskStatus(t.id, 'REPROVADO', { rejectionComment: rejectForm.comment, rejectionNewDeadline: rejectForm.newDeadline })}
+                              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#fca5a5', fontWeight: 600 }}
+                              disabled={!rejectForm.comment || !rejectForm.newDeadline}
+                            >
+                              Confirmar Reprovação
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                        {/* Collaborator: PENDENTE → EM_PRODUCAO */}
+                        {isMyTask && t.status === 'PENDENTE' && (
+                          <button onClick={() => advanceTaskStatus(t.id, 'EM_PRODUCAO')} style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: '#22d3ee', fontWeight: 600 }}>
+                            Iniciar
+                          </button>
+                        )}
+
+                        {/* Collaborator: EM_PRODUCAO → EM_REVISAO */}
+                        {isMyTask && t.status === 'EM_PRODUCAO' && (
+                          <>
+                            <button
+                              onClick={() => { setResultLinkTaskId(t.id); setResultLinkValue(t.resultLink || '') }}
+                              style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: '#93c5fd', fontWeight: 600 }}
+                            >
+                              {t.resultLink ? 'Editar Link' : 'Adicionar Link'}
+                            </button>
+                            <button onClick={() => advanceTaskStatus(t.id, 'EM_REVISAO')} style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: '#fbbf24', fontWeight: 600 }}>
+                              Enviar p/ Revisão
+                            </button>
+                          </>
+                        )}
+
+                        {/* Manager: EM_REVISAO → APROVADO or REPROVADO */}
+                        {canManageTasks && t.status === 'EM_REVISAO' && (
+                          <>
+                            <button onClick={() => advanceTaskStatus(t.id, 'APROVADO')} style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: '#4ade80', fontWeight: 600 }}>
+                              ✓ Aprovar
+                            </button>
+                            <button onClick={() => { setRejectingTaskId(t.id); setRejectForm({ comment: '', newDeadline: '' }) }} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: '#f87171', fontWeight: 600 }}>
+                              ✕ Reprovar
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Comments */}
           <div className="card">
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'white' }}>Comentários</h2>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'var(--text)' }}>Comentários</h2>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
               <textarea className="input" rows={2} placeholder="Adicionar comentário…" value={comment} onChange={e => setComment(e.target.value)} style={{ resize: 'none', flex: 1 }} />
               <button onClick={postComment} className="btn-primary" disabled={!comment.trim() || posting} style={{ alignSelf: 'flex-end' }}>
                 {posting ? '…' : 'Enviar'}
@@ -359,7 +619,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
 
         {/* Right — Timeline */}
         <div className="card" style={{ height: 'fit-content' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'white' }}>Histórico</h2>
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'var(--text)' }}>Histórico</h2>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {project.logs?.map((log: any, i: number) => (
               <div key={log.id} style={{ display: 'flex', gap: 12 }}>
@@ -378,23 +638,83 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
+      {/* Create Task Modal */}
+      {showCreateTask && (
+        <div className="modal-overlay" onClick={() => setShowCreateTask(false)}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 20px', color: 'var(--text)' }}>Nova Tarefa</h2>
+
+            {taskError && (
+              <div style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: '#fca5a5', fontSize: 13 }}>
+                {taskError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="label">Nome da Tarefa *</label>
+                <input className="input" placeholder="Ex: Design de banner" value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+
+              <div>
+                <label className="label">Descrição</label>
+                <textarea className="input" rows={2} style={{ resize: 'none' }} placeholder="Detalhes da tarefa…" value={taskForm.description} onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} />
+              </div>
+
+              <div>
+                <label className="label">Atribuir a Colaborador</label>
+                <select className="select" value={taskForm.assignedToId} onChange={e => setTaskForm(p => ({ ...p, assignedToId: e.target.value }))}>
+                  <option value="">Sem atribuição</option>
+                  {colaboradores.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Data Limite *</label>
+                <input type="date" className="input" value={taskForm.deadline} onChange={e => setTaskForm(p => ({ ...p, deadline: e.target.value }))} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div>
+                  <label className="label">Hora Limite</label>
+                  <input type="time" className="input" value={taskForm.deadlineTime} onChange={e => setTaskForm(p => ({ ...p, deadlineTime: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Início</label>
+                  <input type="time" className="input" value={taskForm.startTime} onChange={e => setTaskForm(p => ({ ...p, startTime: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Fim</label>
+                  <input type="time" className="input" value={taskForm.endTime} onChange={e => setTaskForm(p => ({ ...p, endTime: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button onClick={() => setShowCreateTask(false)} className="btn-secondary">Cancelar</button>
+              <button onClick={createTask} className="btn-primary" disabled={savingTask}>
+                {savingTask ? 'A criar…' : 'Criar Tarefa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirm Modal */}
       {showDeleteConfirm && (
         <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
           <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
-              <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px', color: 'white' }}>Eliminar Projeto?</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px', color: 'var(--text)' }}>Eliminar Projeto?</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
                 Esta ação é <strong style={{ color: '#fca5a5' }}>permanente</strong> e não pode ser desfeita.
               </p>
             </div>
-
             <div style={{ padding: '14px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, marginBottom: 20 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 2 }}>{project.name}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{project.client}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{project.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{project.clientName || project.client}</div>
             </div>
-
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowDeleteConfirm(false)} className="btn-secondary">Cancelar</button>
               <button
@@ -413,7 +733,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
       {showDelegate && (
         <div className="modal-overlay" onClick={() => setShowDelegate(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px' }}>Delegar Projeto</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', color: 'var(--text)' }}>Delegar Projeto</h2>
             <label className="label">Escolher Colaborador</label>
             <select className="select" value={delegateTo} onChange={e => setDelegateTo(e.target.value)} style={{ marginBottom: 20 }}>
               <option value="">Selecionar…</option>

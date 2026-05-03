@@ -7,11 +7,16 @@
       "password": "12345678",
       "role": "GESTOR",
       "avatar": "2B",
-      "createdAt": "2026-04-17T00:00:00.000Z"
+      "createdAt": "2026-04-17T00:00:00.000Z",
+      "points": 0
     }
   ],
+  "clients": [],
   "rooms": [],
   "projects": [],
+  "tasks": [],
   "logs": [],
-  "comments": []
+  "comments": [],
+  "messages": [],
+  "pointEvents": []
 }

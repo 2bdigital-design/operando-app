@@ -21,11 +21,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map(c => ({ ...c, authorName: db.users.find(u => u.id === c.authorId)?.name || '—', authorAvatar: db.users.find(u => u.id === c.authorId)?.avatar || '?' }))
 
+  const clientRecord = project.clientId ? db.clients.find(c => c.id === project.clientId) : null
+
   return NextResponse.json({
     ...project,
     createdByName: db.users.find(u => u.id === project.createdById)?.name || '—',
     assignedToName: project.assignedToId ? db.users.find(u => u.id === project.assignedToId)?.name || '—' : null,
     assignedToAvatar: project.assignedToId ? db.users.find(u => u.id === project.assignedToId)?.avatar || '?' : null,
+    delegatedByName: project.delegatedById ? db.users.find(u => u.id === project.delegatedById)?.name || '—' : null,
+    clientName: clientRecord?.name || project.clientName || null,
+    roomName: clientRecord?.name || null,
+    roomColor: clientRecord?.color || null,
     logs,
     comments,
   })

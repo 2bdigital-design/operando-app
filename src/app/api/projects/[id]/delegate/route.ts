@@ -19,6 +19,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 })
 
   project.assignedToId = assignedToId
+  project.assignedToName = user.name
+  project.assignedToIds = [assignedToId]
+  project.assignedToNames = [user.name]
   project.delegatedById = session.userId
   project.delegatedAt = new Date().toISOString()
   project.status = 'DELEGADO'

@@ -29,6 +29,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `Transição inválida: ${project.status} → ${status}` }, { status: 400 })
   }
 
+  // Regras de permissão por papel:
+  // - Aprovar (EM_REVISAO→APROVADO) e Concluir (APROVADO→CONCLUIDO): apenas GESTOR ou LIDER
+  // - Avançar na produção (CONFIRMADO→EM_PRODUCAO, EM_PRODUCAO→EM_REVISAO): apenas o responsável ou GESTOR/LIDER
+  const canApprove = session.role === 'GESTOR' || session.role === 'LIDER'
+  const isAssigned = session.userId === project.assignedToId
+
+  if (['APROVADO', 'CONCLUIDO'].includes(status) && !canApprove) {
+    return NextResponse.json({ error: 'Apenas GESTOR ou LIDER podem aprovar ou concluir projetos' }, { status: 403 })
+  }
+
+  if (['EM_PRODUCAO', 'EM_REVISAO'].includes(status) && !isAssigned && !canApprove) {
+    return NextResponse.json({ error: 'Apenas o responsável pelo projeto pode alterar este estado' }, { status: 403 })
+  }
+
   const old = project.status
   project.status = status as ProjectStatus
 

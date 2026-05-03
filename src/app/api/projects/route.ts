@@ -12,7 +12,10 @@ export async function GET() {
 
   let projects = db.projects
   if (session.role === 'COLABORADOR') {
-    projects = projects.filter(p => p.assignedToId === session.userId)
+    projects = projects.filter(p =>
+      p.assignedToId === session.userId ||
+      (p.assignedToIds || []).includes(session.userId)
+    )
   }
 
   const enriched = projects.map(p => ({
@@ -21,8 +24,9 @@ export async function GET() {
     assignedToName: p.assignedToId ? db.users.find(u => u.id === p.assignedToId)?.name || '—' : null,
     assignedToAvatar: p.assignedToId ? db.users.find(u => u.id === p.assignedToId)?.avatar || '?' : null,
     delegatedByName: p.delegatedById ? db.users.find(u => u.id === p.delegatedById)?.name || '—' : null,
-    roomName: p.roomId ? db.rooms.find(r => r.id === p.roomId)?.name || null : null,
-    roomColor: p.roomId ? db.rooms.find(r => r.id === p.roomId)?.color || null : null,
+    clientName: p.clientId ? db.clients.find(c => c.id === p.clientId)?.name || null : null,
+    roomName: p.clientId ? db.clients.find(c => c.id === p.clientId)?.name || null : null,
+    roomColor: p.clientId ? db.clients.find(c => c.id === p.clientId)?.color || null : null,
   }))
 
   return NextResponse.json(enriched)
@@ -35,18 +39,36 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
+
+  if (!body.clientId) {
+    return NextResponse.json({ error: 'clientId é obrigatório' }, { status: 400 })
+  }
+
   const db = readDB()
+
+  const clientRecord = db.clients.find(c => c.id === body.clientId)
+  if (!clientRecord) {
+    return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
+  }
+
+  // Support multiple assignees
+  const assignedToIds: string[] = Array.isArray(body.assignedToIds) ? body.assignedToIds : (body.assignedToId ? [body.assignedToId] : [])
+  const assignedToNames: string[] = assignedToIds.map(uid => db.users.find(u => u.id === uid)?.name || '—')
+  const firstAssigneeId = assignedToIds[0] || null
+  const firstAssigneeName = assignedToNames[0] || null
 
   const project = {
     id: generateId('proj'),
     name: body.name,
-    client: body.client,
+    client: body.client || clientRecord.name,
+    clientId: body.clientId,
+    clientName: clientRecord.name,
     objective: body.objective,
     deadline: body.deadline,
     priority: body.priority || 'MEDIA',
     status: 'DISPONIVEL' as const,
     progress: 0,
-    roomId: body.roomId || null,
+    roomId: body.clientId,
     attachments: (body.attachments || []).map((a: any) => ({
       id: generateId('att'),
       label: a.label || a.url,
@@ -55,7 +77,10 @@ export async function POST(req: NextRequest) {
       addedAt: new Date().toISOString(),
     })),
     createdById: session.userId,
-    assignedToId: null,
+    assignedToId: firstAssigneeId,
+    assignedToName: firstAssigneeName,
+    assignedToIds,
+    assignedToNames,
     delegatedById: null,
     createdAt: new Date().toISOString(),
     delegatedAt: null,

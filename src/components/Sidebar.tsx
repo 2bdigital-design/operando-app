@@ -29,6 +29,14 @@ const ICONS = {
       <rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="1.8"/>
     </svg>
   ),
+  clientes: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+      <circle cx="9" cy="7" r="3" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <circle cx="19" cy="7" r="2" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M21 21v-1a3 3 0 00-2-2.83" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
   salas: (
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -73,20 +81,21 @@ const ICONS = {
 }
 
 const gestorLinks = [
-  { href: '/dashboard', label: 'Dashboard',  icon: ICONS.dashboard },
-  { href: '/salas',     label: 'Salas',       icon: ICONS.salas },
-  { href: '/projetos',  label: 'Projetos',    icon: ICONS.projetos },
-  { href: '/equipa',    label: 'Equipa',      icon: ICONS.equipa },
-  { href: '/relatorios',label: 'Relatórios',  icon: ICONS.relatorios },
-  { href: '/chat',      label: 'Chat',        icon: ICONS.chat },
+  { href: '/dashboard',  label: 'Dashboard',  icon: ICONS.dashboard },
+  { href: '/clientes',   label: 'Clientes',   icon: ICONS.clientes },
+  { href: '/projetos',   label: 'Projetos',   icon: ICONS.projetos },
+  { href: '/equipa',     label: 'Equipa',     icon: ICONS.equipa },
+  { href: '/relatorios', label: 'Relatórios', icon: ICONS.relatorios },
+  { href: '/chat',       label: 'Chat',       icon: ICONS.chat },
 ]
 
 const liderLinks = [
-  { href: '/dashboard',  label: 'Dashboard', icon: ICONS.dashboard },
-  { href: '/projetos',   label: 'Projetos',  icon: ICONS.projetos },
-  { href: '/relatorios', label: 'Relatórios',icon: ICONS.relatorios },
-  { href: '/equipa',     label: 'Equipa',    icon: ICONS.equipa },
-  { href: '/chat',       label: 'Chat',      icon: ICONS.chat },
+  { href: '/dashboard',  label: 'Dashboard',  icon: ICONS.dashboard },
+  { href: '/clientes',   label: 'Clientes',   icon: ICONS.clientes },
+  { href: '/projetos',   label: 'Projetos',   icon: ICONS.projetos },
+  { href: '/relatorios', label: 'Relatórios', icon: ICONS.relatorios },
+  { href: '/equipa',     label: 'Equipa',     icon: ICONS.equipa },
+  { href: '/chat',       label: 'Chat',       icon: ICONS.chat },
 ]
 
 const supervisorLinks = [
@@ -200,7 +209,7 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {links.map(link => {
-            const isActive = pathname === link.href || (link.href !== '/dashboard' && link.href !== '/meus-projetos' && pathname.startsWith(link.href))
+            const isActive = pathname === link.href || (link.href !== '/dashboard' && link.href !== '/meus-projetos' && (pathname.startsWith(link.href) || (link.href === '/clientes' && (pathname.startsWith('/clientes') || pathname.startsWith('/salas')))))
             return (
               <a
                 key={link.href}

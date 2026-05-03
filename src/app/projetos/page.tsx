@@ -66,7 +66,8 @@ function ProjetosContent() {
   }
 
   const filtered = projects.filter(p => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase())
+    const clientStr = (p.clientName || p.client || '').toLowerCase()
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || clientStr.includes(search.toLowerCase())
     const matchStatus = !filterStatus || p.status === filterStatus
     const matchPriority = !filterPriority || p.priority === filterPriority
     return matchSearch && matchStatus && matchPriority
@@ -146,7 +147,7 @@ function ProjetosContent() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, color: 'white', fontSize: 15, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.client}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.clientName || p.client}</div>
                     </div>
                     <PriorityBadge priority={p.priority} />
                   </div>
@@ -238,7 +239,7 @@ function ProjetosContent() {
                           <div style={{ fontWeight: 600, color: 'white', fontSize: 14, cursor: 'pointer' }} onClick={() => router.push(`/projetos/${p.id}`)}>
                             {p.name}
                           </div>
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.client}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.clientName || p.client}</div>
                         </td>
                         <td>
                           {p.assignedToName ? (
