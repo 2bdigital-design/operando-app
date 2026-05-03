@@ -130,93 +130,160 @@ function ProjetosContent() {
           <p style={{ color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>Nenhum projeto encontrado</p>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Projeto / Cliente</th>
-                  <th>Responsável</th>
-                  <th>Prazo</th>
-                  <th>Progresso</th>
-                  <th>Prioridade</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(p => {
-                  const days = daysUntil(p.deadline)
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        <div
-                          style={{ fontWeight: 600, color: 'white', fontSize: 14, cursor: 'pointer' }}
-                          onClick={() => router.push(`/projetos/${p.id}`)}
-                        >
-                          {p.name}
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.client}</div>
-                      </td>
-                      <td>
-                        {p.assignedToName ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                            <div className="avatar" style={{ width: 26, height: 26, fontSize: 10 }}>{p.assignedToAvatar}</div>
-                            <span style={{ fontSize: 13 }}>{p.assignedToName}</span>
-                          </div>
-                        ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>Não delegado</span>}
-                      </td>
-                      <td>
-                        <div style={{ fontSize: 13, color: days < 0 ? '#ef4444' : days <= 3 ? '#f59e0b' : 'var(--text)', fontWeight: days <= 3 ? 600 : 400 }}>
-                          {formatDate(p.deadline)}
-                        </div>
-                        {days < 0 && <div style={{ fontSize: 11, color: '#ef4444' }}>{Math.abs(days)}d atrasado</div>}
-                        {days >= 0 && days <= 3 && <div style={{ fontSize: 11, color: '#f59e0b' }}>Faltam {days}d</div>}
-                      </td>
-                      <td style={{ width: 110 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div className="progress-bar" style={{ flex: 1 }}>
-                            <div className="progress-fill" style={{ width: `${p.progress}%` }} />
-                          </div>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.progress}%</span>
-                        </div>
-                      </td>
-                      <td><PriorityBadge priority={p.priority} /></td>
-                      <td><StatusBadge status={p.status} /></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 5, flexWrap: 'nowrap' }}>
-                          <button
-                            onClick={() => router.push(`/projetos/${p.id}`)}
-                            style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#93c5fd', fontWeight: 600, whiteSpace: 'nowrap' }}
-                          >
-                            Ver
-                          </button>
-                          {canDelegate && p.status === 'DISPONIVEL' && (
-                            <button
-                              onClick={() => openDelegate(p.id)}
-                              style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}
-                            >
-                              Delegar
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              onClick={() => setConfirmDelete(p.id)}
-                              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '5px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: '#fca5a5', fontWeight: 700, lineHeight: 1 }}
-                              title="Eliminar projeto (permanente)"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <>
+          {/* ── Mobile cards (hidden on desktop) ── */}
+          <div className="projetos-mobile-list">
+            {filtered.map(p => {
+              const days = daysUntil(p.deadline)
+              return (
+                <div
+                  key={p.id}
+                  className="card projeto-card"
+                  onClick={() => router.push(`/projetos/${p.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* Header row: name + priority */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, color: 'white', fontSize: 15, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.client}</div>
+                    </div>
+                    <PriorityBadge priority={p.priority} />
+                  </div>
+
+                  {/* Status */}
+                  <div style={{ marginBottom: 10 }}>
+                    <StatusBadge status={p.status} />
+                  </div>
+
+                  {/* Prazo + responsável row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                    <div style={{ fontSize: 13, color: days < 0 ? '#ef4444' : days <= 3 ? '#f59e0b' : 'var(--text-muted)', fontWeight: days <= 3 ? 600 : 400 }}>
+                      📅 {formatDate(p.deadline)}
+                      {days < 0 && <span style={{ fontSize: 11, color: '#ef4444' }}> · {Math.abs(days)}d atraso</span>}
+                      {days >= 0 && days <= 3 && <span style={{ fontSize: 11, color: '#f59e0b' }}> · {days}d restantes</span>}
+                    </div>
+                    {p.assignedToName ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        <div className="avatar" style={{ width: 22, height: 22, fontSize: 9 }}>{p.assignedToAvatar}</div>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.assignedToName.split(' ')[0]}</span>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Não delegado</span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Progresso</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{p.progress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${p.progress}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => router.push(`/projetos/${p.id}`)}
+                      style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#93c5fd', fontWeight: 600 }}
+                    >
+                      Ver
+                    </button>
+                    {canDelegate && p.status === 'DISPONIVEL' && (
+                      <button
+                        onClick={() => openDelegate(p.id)}
+                        style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#60a5fa', fontWeight: 600 }}
+                      >
+                        Delegar
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => setConfirmDelete(p.id)}
+                        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '7px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 14, color: '#fca5a5' }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </div>
+
+          {/* ── Desktop table (hidden on mobile) ── */}
+          <div className="projetos-desktop-table card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Projeto / Cliente</th>
+                    <th>Responsável</th>
+                    <th>Prazo</th>
+                    <th>Progresso</th>
+                    <th>Prioridade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(p => {
+                    const days = daysUntil(p.deadline)
+                    return (
+                      <tr key={p.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'white', fontSize: 14, cursor: 'pointer' }} onClick={() => router.push(`/projetos/${p.id}`)}>
+                            {p.name}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.client}</div>
+                        </td>
+                        <td>
+                          {p.assignedToName ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                              <div className="avatar" style={{ width: 26, height: 26, fontSize: 10 }}>{p.assignedToAvatar}</div>
+                              <span style={{ fontSize: 13 }}>{p.assignedToName}</span>
+                            </div>
+                          ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>—</span>}
+                        </td>
+                        <td>
+                          <div style={{ fontSize: 13, color: days < 0 ? '#ef4444' : days <= 3 ? '#f59e0b' : 'var(--text)', fontWeight: days <= 3 ? 600 : 400 }}>
+                            {formatDate(p.deadline)}
+                          </div>
+                          {days < 0 && <div style={{ fontSize: 11, color: '#ef4444' }}>{Math.abs(days)}d atrasado</div>}
+                          {days >= 0 && days <= 3 && <div style={{ fontSize: 11, color: '#f59e0b' }}>Faltam {days}d</div>}
+                        </td>
+                        <td style={{ width: 110 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div className="progress-bar" style={{ flex: 1 }}>
+                              <div className="progress-fill" style={{ width: `${p.progress}%` }} />
+                            </div>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.progress}%</span>
+                          </div>
+                        </td>
+                        <td><PriorityBadge priority={p.priority} /></td>
+                        <td><StatusBadge status={p.status} /></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            <button onClick={() => router.push(`/projetos/${p.id}`)} style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#93c5fd', fontWeight: 600, whiteSpace: 'nowrap' }}>Ver</button>
+                            {canDelegate && p.status === 'DISPONIVEL' && (
+                              <button onClick={() => openDelegate(p.id)} style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}>Delegar</button>
+                            )}
+                            {canDelete && (
+                              <button onClick={() => setConfirmDelete(p.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '5px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: '#fca5a5', fontWeight: 700, lineHeight: 1 }}>✕</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Delegate Modal */}

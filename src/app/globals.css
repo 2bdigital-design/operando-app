@@ -572,6 +572,14 @@ tr:hover td {
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.12);
 }
 
+/* ── Projetos responsive defaults (desktop) ── */
+.projetos-mobile-list {
+  display: none;
+}
+.projetos-desktop-table {
+  display: block;
+}
+
 /* ── Mobile hamburger button ── */
 .mobile-hamburger {
   display: none;
@@ -684,6 +692,24 @@ tr:hover td {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Projetos: show cards, hide table on mobile */
+  .projetos-mobile-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .projetos-desktop-table {
+    display: none !important;
+  }
+  .projeto-card {
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .projeto-card:active {
+    transform: scale(0.98);
   }
 
   /* Table wrapper for overflow */
