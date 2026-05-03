@@ -65,19 +65,19 @@ export default function NovoProjetoPage() {
   return (
     <div style={{ padding: 32, maxWidth: 680 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button onClick={() => router.back()} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 14, color: '#64748b' }}>
-          Voltar
+        <button onClick={() => router.back()} className="btn-secondary" style={{ padding: '8px 14px' }}>
+          ← Voltar
         </button>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: 0 }}>Novo Projeto</h1>
-          <p style={{ color: '#64748b', fontSize: 14, margin: '2px 0 0' }}>Preencha os dados do projeto</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'white', margin: 0 }}>Novo Projeto</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '2px 0 0' }}>Preencha os dados do projeto</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Main details */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0, paddingBottom: 12, borderBottom: '1px solid #f1f5f9' }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'white', margin: 0, paddingBottom: 12, borderBottom: '1px solid var(--glass-border)' }}>
             Informações Gerais
           </h2>
 
@@ -121,7 +121,7 @@ export default function NovoProjetoPage() {
 
         {/* Attachments */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0, paddingBottom: 12, borderBottom: '1px solid #f1f5f9' }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'white', margin: 0, paddingBottom: 12, borderBottom: '1px solid var(--glass-border)' }}>
             Anexos / Links
             <span style={{ fontSize: 12, fontWeight: 400, color: '#64748b', marginLeft: 8 }}>Adicione quantos quiser</span>
           </h2>
@@ -130,11 +130,11 @@ export default function NovoProjetoPage() {
           {attachments.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {attachments.map(att => (
-                <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(6,12,26,0.5)', borderRadius: 8, border: '1px solid var(--glass-border)' }}>
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1d4ed8', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{att.label}</div>
-                    <div style={{ fontSize: 12, color: '#1d4ed8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.url}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{att.label}</div>
+                    <div style={{ fontSize: 12, color: '#60a5fa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.url}</div>
                   </div>
                   <button type="button" onClick={() => removeAttachment(att.id)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#dc2626', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                     Remover

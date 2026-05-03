@@ -35,6 +35,8 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
   const [delegateTo, setDelegateTo] = useState('')
   const [newLink, setNewLink] = useState({ label: '', url: '' })
   const [addingLink, setAddingLink] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (!d.error) setSession(d) })
@@ -109,6 +111,13 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
     setNewLink({ label: '', url: '' }); setAddingLink(false); loadProject()
   }
 
+  async function deleteProject() {
+    setDeleting(true)
+    await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+    setDeleting(false)
+    router.push('/projetos')
+  }
+
   async function removeAttachment(attachmentId: string) {
     await fetch(`/api/projects/${id}/attachments`, {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
@@ -117,7 +126,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
     loadProject()
   }
 
-  if (loading) return <div style={{ padding: 32, color: '#64748b' }}>A carregar…</div>
+  if (loading) return <div style={{ padding: 32, color: 'var(--text-muted)' }}>A carregar…</div>
   if (!project) return null
 
   const flow = STATUS_FLOW[project.status as ProjectStatus]
@@ -129,16 +138,16 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
     <div style={{ padding: 32 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 24 }}>
-        <button onClick={() => router.back()} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, marginTop: 4, color: '#64748b', fontWeight: 500 }}>
-          Voltar
+        <button onClick={() => router.back()} className="btn-secondary" style={{ marginTop: 4, fontSize: 13 }}>
+          ← Voltar
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: 0 }}>{project.name}</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'white', margin: 0 }}>{project.name}</h1>
             <StatusBadge status={project.status} />
             <PriorityBadge priority={project.priority} />
           </div>
-          <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#64748b' }}>
+          <div style={{ display: 'flex', gap: 12, fontSize: 13, color: 'var(--text-muted)' }}>
             <span>{project.client}</span>
             {project.roomName && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -150,7 +159,15 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {isGestor && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, color: '#fca5a5', fontWeight: 600 }}
+            >
+              🗑 Eliminar
+            </button>
+          )}
           {isGestor && project.status === 'DISPONIVEL' && (
             <button onClick={openDelegate} className="btn-primary">Delegar</button>
           )}
@@ -173,7 +190,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
       {/* Status pipeline */}
       <div className="card" style={{ marginBottom: 20, padding: '20px 24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 13, left: '3.5%', right: '3.5%', height: 2, background: '#f1f5f9' }} />
+          <div style={{ position: 'absolute', top: 13, left: '3.5%', right: '3.5%', height: 2, background: 'var(--glass-border)' }} />
           <div style={{ position: 'absolute', top: 13, left: '3.5%', height: 2, background: '#1d4ed8', width: `${Math.max(0, currentStep / (steps.length - 1) * 93)}%`, transition: 'width 0.4s' }} />
           {steps.map((s, i) => {
             const done = project.status !== 'ATRASADO' && i < currentStep
@@ -183,13 +200,13 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
                 <div style={{
                   width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700, marginBottom: 6,
-                  background: done ? '#1d4ed8' : active ? '#eff6ff' : 'white',
-                  color: done ? 'white' : active ? '#1d4ed8' : '#94a3b8',
-                  border: active ? '2px solid #1d4ed8' : done ? 'none' : '2px solid #e2e8f0',
+                  background: done ? '#1d4ed8' : active ? 'rgba(29,78,216,0.2)' : 'var(--glass)',
+                  color: done ? 'white' : active ? '#60a5fa' : '#64748b',
+                  border: active ? '2px solid #3b82f6' : done ? 'none' : '2px solid var(--glass-border)',
                 }}>
                   {done ? '✓' : i + 1}
                 </div>
-                <span style={{ fontSize: 11, color: active ? '#1d4ed8' : done ? '#475569' : '#94a3b8', fontWeight: active ? 700 : 400, textAlign: 'center', lineHeight: 1.3 }}>
+                <span style={{ fontSize: 11, color: active ? '#60a5fa' : done ? '#93c5fd' : '#64748b', fontWeight: active ? 700 : 400, textAlign: 'center', lineHeight: 1.3 }}>
                   {STATUS_LABELS[s]}
                 </span>
               </div>
@@ -197,19 +214,19 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
           })}
         </div>
         {project.status === 'ATRASADO' && (
-          <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8, color: '#dc2626', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+          <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239,68,68,0.12)', borderRadius: 8, color: '#fca5a5', fontSize: 13, fontWeight: 600, textAlign: 'center', border: '1px solid rgba(239,68,68,0.2)' }}>
             Prazo ultrapassado — projeto atrasado
           </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 20 }} className="detail-grid">
         {/* Left */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Details */}
           <div className="card">
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: '#0f172a' }}>Detalhes</h2>
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'white' }}>Detalhes</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               {[
                 { label: 'Objetivo', value: project.objective, full: true },
@@ -221,8 +238,8 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
                 { label: 'Concluído em', value: formatDateTime(project.completedAt) },
               ].map(item => (
                 <div key={item.label} style={item.full ? { gridColumn: '1/-1' } : {}}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 14, color: '#0f172a' }}>{item.value}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontSize: 14, color: 'var(--text)' }}>{item.value}</div>
                 </div>
               ))}
             </div>
@@ -231,28 +248,28 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
           {/* Attachments */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: '#0f172a' }}>
+              <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'white' }}>
                 Anexos / Links
-                <span style={{ fontSize: 12, fontWeight: 400, color: '#94a3b8', marginLeft: 8 }}>{project.attachments?.length || 0}</span>
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-faint)', marginLeft: 8 }}>{project.attachments?.length || 0}</span>
               </h2>
             </div>
 
             {project.attachments?.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                 {project.attachments.map((att: any) => (
-                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1d4ed8', flexShrink: 0 }} />
+                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(6,12,26,0.4)', borderRadius: 8, border: '1px solid var(--glass-border)' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{att.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{att.label}</div>
                       <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#1d4ed8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                         {att.url}
                       </a>
                     </div>
-                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#1d4ed8', background: '#eff6ff', border: 'none', borderRadius: 6, padding: '4px 10px', textDecoration: 'none', fontWeight: 600, flexShrink: 0 }}>
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#93c5fd', background: 'rgba(29,78,216,0.2)', border: '1px solid rgba(29,78,216,0.3)', borderRadius: 6, padding: '4px 10px', textDecoration: 'none', fontWeight: 600, flexShrink: 0 }}>
                       Abrir
                     </a>
                     {isGestor && (
-                      <button onClick={() => removeAttachment(att.id)} style={{ background: '#fee2e2', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#dc2626', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                      <button onClick={() => removeAttachment(att.id)} style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#fca5a5', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                         Remover
                       </button>
                     )}
@@ -281,7 +298,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
           {['CONFIRMADO','EM_PRODUCAO','EM_REVISAO','APROVADO'].includes(project.status) && (
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: '#0f172a' }}>Progresso</h2>
+                <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'white' }}>Progresso</h2>
                 {(isMyProject || isGestor) && !editProgress && (
                   <button onClick={() => setEditProgress(true)} style={{ fontSize: 12, color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     Atualizar
@@ -302,7 +319,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
               ) : (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, color: '#64748b' }}>Conclusão</span>
+                    <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Conclusão</span>
                     <span style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8' }}>{project.progress}%</span>
                   </div>
                   <div className="progress-bar" style={{ height: 10 }}>
@@ -315,24 +332,24 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
 
           {/* Comments */}
           <div className="card">
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: '#0f172a' }}>Comentários</h2>
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'white' }}>Comentários</h2>
             <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
               <textarea className="input" rows={2} placeholder="Adicionar comentário…" value={comment} onChange={e => setComment(e.target.value)} style={{ resize: 'none', flex: 1 }} />
               <button onClick={postComment} className="btn-primary" disabled={!comment.trim() || posting} style={{ alignSelf: 'flex-end' }}>
                 {posting ? '…' : 'Enviar'}
               </button>
             </div>
-            {project.comments?.length === 0 && <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Sem comentários ainda.</p>}
+            {project.comments?.length === 0 && <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: 0 }}>Sem comentários ainda.</p>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {project.comments?.map((c: any) => (
                 <div key={c.id} style={{ display: 'flex', gap: 10 }}>
                   <div className="avatar" style={{ width: 30, height: 30, fontSize: 11, flexShrink: 0 }}>{c.authorAvatar}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{c.authorName}</span>
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{formatDateTime(c.createdAt)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.authorName}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{formatDateTime(c.createdAt)}</span>
                     </div>
-                    <div style={{ fontSize: 14, color: '#374151', background: '#f8fafc', padding: '8px 12px', borderRadius: 8 }}>{c.text}</div>
+                    <div style={{ fontSize: 14, color: 'var(--text)', background: 'rgba(6,12,26,0.4)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--glass-border)' }}>{c.text}</div>
                   </div>
                 </div>
               ))}
@@ -342,24 +359,55 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
 
         {/* Right — Timeline */}
         <div className="card" style={{ height: 'fit-content' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: '#0f172a' }}>Histórico</h2>
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 16px', color: 'white' }}>Histórico</h2>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {project.logs?.map((log: any, i: number) => (
               <div key={log.id} style={{ display: 'flex', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1d4ed8', marginTop: 3, flexShrink: 0 }} />
-                  {i < project.logs.length - 1 && <div style={{ width: 2, flex: 1, background: '#e2e8f0', minHeight: 20 }} />}
+                  {i < project.logs.length - 1 && <div style={{ width: 2, flex: 1, background: 'var(--glass-border)', minHeight: 20 }} />}
                 </div>
                 <div style={{ paddingBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{log.action}</div>
-                  {log.detail && <div style={{ fontSize: 12, color: '#64748b', marginBottom: 2 }}>{log.detail}</div>}
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{log.userName} · {formatDateTime(log.createdAt)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{log.action}</div>
+                  {log.detail && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>{log.detail}</div>}
+                  <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{log.userName} · {formatDateTime(log.createdAt)}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Delete Confirm Modal */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px', color: 'white' }}>Eliminar Projeto?</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
+                Esta ação é <strong style={{ color: '#fca5a5' }}>permanente</strong> e não pode ser desfeita.
+              </p>
+            </div>
+
+            <div style={{ padding: '14px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, marginBottom: 20 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 2 }}>{project.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{project.client}</div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowDeleteConfirm(false)} className="btn-secondary">Cancelar</button>
+              <button
+                onClick={deleteProject}
+                disabled={deleting}
+                style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 14, color: '#fca5a5', fontWeight: 700 }}
+              >
+                {deleting ? 'A eliminar…' : '🗑 Eliminar Definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delegate Modal */}
       {showDelegate && (

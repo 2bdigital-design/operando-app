@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { getSession, canSeeFullStats } from '@/lib/auth'
 import { readDB, checkAndMarkOverdue, writeDB } from '@/lib/db'
 
 export async function GET() {
   const session = await getSession()
-  if (!session || session.role !== 'GESTOR') {
+  if (!session || !canSeeFullStats(session.role)) {
     return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
   }
+  const userCanCreate = session.role === 'GESTOR' || session.role === 'LIDER'
 
   const db = readDB()
   checkAndMarkOverdue(db)
@@ -32,7 +33,14 @@ export async function GET() {
     .filter(u => u.role === 'COLABORADOR')
     .map(u => {
       const mine = projects.filter(p => p.assignedToId === u.id && !['CONCLUIDO', 'APROVADO'].includes(p.status))
-      return { id: u.id, name: u.name, avatar: u.avatar, count: mine.length, atrasados: mine.filter(p => p.status === 'ATRASADO').length }
+      return {
+        id: u.id,
+        name: u.name,
+        avatar: u.avatar,
+        count: mine.length,
+        atrasados: mine.filter(p => p.status === 'ATRASADO').length,
+        points: u.points || 0,
+      }
     })
 
   // Recent projects (last 10)
@@ -45,5 +53,5 @@ export async function GET() {
       assignedToAvatar: p.assignedToId ? db.users.find(u => u.id === p.assignedToId)?.avatar || '?' : null,
     }))
 
-  return NextResponse.json({ ativos, atrasados, concluidosHoje, naoConfirmados, disponiveis, total, workload, recent })
+  return NextResponse.json({ ativos, atrasados, concluidosHoje, naoConfirmados, disponiveis, total, workload, recent, canCreate: userCanCreate })
 }

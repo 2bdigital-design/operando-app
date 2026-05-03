@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { readDB, writeDB, generateId } from '@/lib/db'
+import { getSession, canManageUsers } from '@/lib/auth'
+import { readDB, writeDB, generateId, UserRole } from '@/lib/db'
 
 export async function GET() {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const db = readDB()
+
   const users = db.users.map(u => ({
     id: u.id,
     name: u.name,
@@ -14,6 +15,7 @@ export async function GET() {
     role: u.role,
     avatar: u.avatar,
     createdAt: u.createdAt,
+    points: u.points || 0,
   }))
 
   return NextResponse.json(users)
@@ -21,15 +23,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
-  if (!session || session.role !== 'GESTOR') {
-    return NextResponse.json({ error: 'Apenas gestores podem criar colaboradores' }, { status: 403 })
+  if (!session || !canManageUsers(session.role)) {
+    return NextResponse.json({ error: 'Apenas gestores podem criar membros' }, { status: 403 })
   }
 
-  const { name, email, password } = await req.json()
+  const { name, email, password, role } = await req.json()
 
   if (!name?.trim() || !email?.trim() || !password?.trim()) {
     return NextResponse.json({ error: 'Nome, email e password são obrigatórios' }, { status: 400 })
   }
+
+  // GESTOR cannot be created via API; allowed: LIDER, SUPERVISOR, COLABORADOR
+  const allowed: UserRole[] = ['LIDER', 'SUPERVISOR', 'COLABORADOR']
+  const assignedRole: UserRole = allowed.includes(role) ? role : 'COLABORADOR'
 
   const db = readDB()
 
@@ -44,20 +50,28 @@ export async function POST(req: NextRequest) {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password: password.trim(),
-    role: 'COLABORADOR' as const,
+    role: assignedRole,
     avatar: initials,
     createdAt: new Date().toISOString(),
+    points: 0,
   }
 
   db.users.push(user)
   writeDB(db)
 
-  return NextResponse.json({ id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar }, { status: 201 })
+  return NextResponse.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    points: 0,
+  }, { status: 201 })
 }
 
 export async function DELETE(req: NextRequest) {
   const session = await getSession()
-  if (!session || session.role !== 'GESTOR') {
+  if (!session || !canManageUsers(session.role)) {
     return NextResponse.json({ error: 'Apenas gestores podem remover membros' }, { status: 403 })
   }
 

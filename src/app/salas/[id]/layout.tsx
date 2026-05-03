@@ -4,7 +4,7 @@ export default function SalaDetailLayout({ children }: { children: React.ReactNo
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
-      <main style={{ flex: 1, overflow: 'auto', background: '#f8fafc' }}>{children}</main>
+      <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>{children}</main>
     </div>
   )
 }

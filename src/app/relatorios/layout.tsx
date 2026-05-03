@@ -1,10 +1,11 @@
-import Sidebar from '@/components/Sidebar'
+﻿import Sidebar from '@/components/Sidebar'
 
 export default function RelatoriosLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
-      <main style={{ flex: 1, overflow: 'auto', background: '#f8fafc' }}>{children}</main>
+      <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>{children}</main>
     </div>
   )
 }
+

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { readDB, writeDB, addLog, ProjectStatus } from '@/lib/db'
+import { readDB, writeDB, addLog, applyScoreEvent, ProjectStatus } from '@/lib/db'
 
 const ALLOWED_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   DISPONIVEL: ['DELEGADO'],
@@ -32,7 +32,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const old = project.status
   project.status = status as ProjectStatus
 
-  if (status === 'CONCLUIDO') project.completedAt = new Date().toISOString()
+  if (status === 'CONCLUIDO') {
+    project.completedAt = new Date().toISOString()
+    // Check if completed on time (before or on deadline, and within 24h of EM_REVISAO→APROVADO→CONCLUIDO)
+    const deadline = new Date(project.deadline)
+    const now = new Date()
+    const onTime = now <= deadline && project.scoredOnTime === null
+    applyScoreEvent(db, project, onTime)
+  }
 
   addLog(db, id, session.userId, 'STATUS_ALTERADO', `${old} → ${status}`)
   writeDB(db)

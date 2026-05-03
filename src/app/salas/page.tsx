@@ -74,12 +74,12 @@ export default function SalasPage() {
   }
 
   return (
-    <div style={{ padding: 32 }}>
+    <div style={{ padding: '28px 24px' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 }}>Salas de Trabalho</h1>
-          <p style={{ color: '#64748b', fontSize: 14, margin: '6px 0 0' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: 'white', margin: 0 }}>Salas de Trabalho</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '6px 0 0' }}>
             Organize a sua equipa em espaços de trabalho dedicados
           </p>
         </div>
@@ -101,24 +101,25 @@ export default function SalasPage() {
           <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>Crie salas para organizar os projetos da sua equipa</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
           {rooms.map(room => (
             <div
               key={room.id}
-              style={{ background: 'white', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+              className="card"
+              style={{ overflow: 'hidden', cursor: 'pointer', padding: 0, transition: 'all 0.2s' }}
               onClick={() => router.push(`/salas/${room.id}`)}
             >
               {/* Color bar */}
               <div style={{ height: 6, background: room.color }} />
 
-              <div style={{ padding: 24 }}>
+              <div style={{ padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: room.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 3, background: room.color, opacity: 0.8 }} />
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: room.color + '22', border: `1px solid ${room.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 3, background: room.color, opacity: 0.9 }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: 0 }}>{room.name}</h3>
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'white', margin: 0 }}>{room.name}</h3>
                     </div>
                   </div>
                   {session?.role === 'GESTOR' && (
@@ -132,19 +133,19 @@ export default function SalasPage() {
                 </div>
 
                 {room.description && (
-                  <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 16px', lineHeight: 1.5 }}>{room.description}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>{room.description}</p>
                 )}
 
                 {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
                   {[
-                    { label: 'Projetos', value: room.projectCount },
+                    { label: 'Projetos', value: room.projectCount, color: 'var(--text)' },
                     { label: 'Ativos', value: room.activeCount, color: room.color },
-                    { label: 'Atrasados', value: room.overdueCount, color: room.overdueCount > 0 ? '#dc2626' : undefined },
+                    { label: 'Atrasados', value: room.overdueCount, color: room.overdueCount > 0 ? '#ef4444' : 'var(--text-faint)' },
                   ].map(s => (
-                    <div key={s.label} style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: s.color || '#0f172a' }}>{s.value}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{s.label}</div>
+                    <div key={s.label} style={{ background: 'rgba(6,12,26,0.5)', borderRadius: 8, padding: '9px 6px', textAlign: 'center', border: '1px solid var(--glass-border)' }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -158,7 +159,7 @@ export default function SalasPage() {
                       </div>
                     ))}
                   </div>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {room.memberCount === 0 ? 'Sem membros' : `${room.memberCount} membro${room.memberCount !== 1 ? 's' : ''}`}
                   </span>
                 </div>

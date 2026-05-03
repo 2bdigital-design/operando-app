@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { getSession, canCreateProjects } from '@/lib/auth'
 import { readDB, writeDB, generateId, addLog, checkAndMarkOverdue } from '@/lib/db'
 
 export async function GET() {
@@ -30,8 +30,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
-  if (!session || session.role !== 'GESTOR') {
-    return NextResponse.json({ error: 'Apenas gestores podem criar projetos' }, { status: 403 })
+  if (!session || !canCreateProjects(session.role)) {
+    return NextResponse.json({ error: 'Sem permissão para criar projetos' }, { status: 403 })
   }
 
   const body = await req.json()
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     confirmedAt: null,
     startedAt: null,
     completedAt: null,
+    scoredOnTime: null,
   }
 
   db.projects.push(project)

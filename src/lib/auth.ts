@@ -1,11 +1,11 @@
 import { cookies } from 'next/headers'
-import { readDB, User } from './db'
+import { readDB, User, UserRole } from './db'
 
 const SESSION_COOKIE = 'gestao_session'
 
 export interface Session {
   userId: string
-  role: 'GESTOR' | 'COLABORADOR'
+  role: UserRole
   name: string
   email: string
   avatar: string
@@ -43,6 +43,39 @@ export async function requireGestor(): Promise<Session> {
   const s = await requireSession()
   if (s.role !== 'GESTOR') throw new Error('Acesso negado')
   return s
+}
+
+export async function requireGestorOrLider(): Promise<Session> {
+  const s = await requireSession()
+  if (s.role !== 'GESTOR' && s.role !== 'LIDER') throw new Error('Acesso negado')
+  return s
+}
+
+export async function requireGestorOrSupervisor(): Promise<Session> {
+  const s = await requireSession()
+  if (s.role !== 'GESTOR' && s.role !== 'SUPERVISOR') throw new Error('Acesso negado')
+  return s
+}
+
+export async function requireGestorOrLiderOrSupervisor(): Promise<Session> {
+  const s = await requireSession()
+  if (!['GESTOR', 'LIDER', 'SUPERVISOR'].includes(s.role)) throw new Error('Acesso negado')
+  return s
+}
+
+/** Returns true if the role has management-level access (can create projects) */
+export function canCreateProjects(role: UserRole): boolean {
+  return ['GESTOR', 'LIDER'].includes(role)
+}
+
+/** Returns true if the role can see full stats of all users */
+export function canSeeFullStats(role: UserRole): boolean {
+  return ['GESTOR', 'LIDER', 'SUPERVISOR'].includes(role)
+}
+
+/** Returns true if role can add/remove users */
+export function canManageUsers(role: UserRole): boolean {
+  return role === 'GESTOR'
 }
 
 export function login(email: string, password: string): User | null {
