@@ -62,7 +62,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
   const [editProgress, setEditProgress] = useState(false)
   const [showDelegate, setShowDelegate] = useState(false)
   const [colaboradores, setColaboradores] = useState<any[]>([])
-  const [delegateTo, setDelegateTo] = useState('')
+  const [delegateToIds, setDelegateToIds] = useState<string[]>([])
   const [newLink, setNewLink] = useState({ label: '', url: '' })
   const [addingLink, setAddingLink] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -139,17 +139,25 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function openDelegate() {
+    // Pre-select already assigned members
+    setDelegateToIds(project?.assignedToIds?.length ? project.assignedToIds : [])
     setShowDelegate(true)
     const res = await fetch('/api/users')
     const users = await res.json()
     setColaboradores(users.filter((u: any) => u.role === 'COLABORADOR'))
   }
 
+  function toggleDelegate(uid: string) {
+    setDelegateToIds(prev =>
+      prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]
+    )
+  }
+
   async function doDelegate() {
-    if (!delegateTo) return
+    if (delegateToIds.length === 0) return
     await fetch(`/api/projects/${id}/delegate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignedToId: delegateTo }),
+      body: JSON.stringify({ assignedToIds: delegateToIds }),
     })
     setShowDelegate(false); loadProject()
   }
@@ -234,7 +242,7 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
   if (!project) return null
 
   const flow = STATUS_FLOW[project.status as ProjectStatus]
-  const isMyProject = session?.userId === project.assignedToId
+  const isMyProject = (project.assignedToIds ?? [project.assignedToId]).includes(session?.userId)
   const isGestor = session?.role === 'GESTOR'
   const isLider = session?.role === 'LIDER'
   const canApprove = isGestor || isLider
@@ -729,19 +737,58 @@ export default function ProjetoDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* Delegate Modal */}
+      {/* Delegate Modal — multi-select */}
       {showDelegate && (
         <div className="modal-overlay" onClick={() => setShowDelegate(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', color: 'var(--text)' }}>Delegar Projeto</h2>
-            <label className="label">Escolher Colaborador</label>
-            <select className="select" value={delegateTo} onChange={e => setDelegateTo(e.target.value)} style={{ marginBottom: 20 }}>
-              <option value="">Selecionar…</option>
-              {colaboradores.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', color: 'var(--text)' }}>Delegar Projeto</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+              Selecione um ou mais colaboradores
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 280, overflowY: 'auto' }}>
+              {colaboradores.length === 0 && (
+                <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>Nenhum colaborador disponível</p>
+              )}
+              {colaboradores.map(c => {
+                const checked = delegateToIds.includes(c.id)
+                return (
+                  <label key={c.id} onClick={() => toggleDelegate(c.id)} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                    borderRadius: 10, cursor: 'pointer',
+                    background: checked ? 'rgba(29,78,216,0.15)' : 'var(--glass)',
+                    border: `1px solid ${checked ? '#3b82f6' : 'var(--glass-border)'}`,
+                    transition: 'all 0.15s',
+                  }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                      border: `2px solid ${checked ? '#3b82f6' : 'var(--glass-border)'}`,
+                      background: checked ? '#3b82f6' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {checked && <span style={{ color: 'white', fontSize: 11, fontWeight: 700 }}>✓</span>}
+                    </div>
+                    <div className="avatar" style={{ width: 30, height: 30, fontSize: 12, flexShrink: 0 }}>{c.avatar}</div>
+                    <div>
+                      <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: 14 }}>{c.name}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{c.email}</div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            {delegateToIds.length > 0 && (
+              <p style={{ color: '#60a5fa', fontSize: 13, marginBottom: 12, fontWeight: 600 }}>
+                {delegateToIds.length} colaborador{delegateToIds.length > 1 ? 'es' : ''} selecionado{delegateToIds.length > 1 ? 's' : ''}
+              </p>
+            )}
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowDelegate(false)} className="btn-secondary">Cancelar</button>
-              <button onClick={doDelegate} className="btn-primary" disabled={!delegateTo}>Confirmar</button>
+              <button onClick={doDelegate} className="btn-primary" disabled={delegateToIds.length === 0}>
+                Delegar {delegateToIds.length > 0 ? `(${delegateToIds.length})` : ''}
+              </button>
             </div>
           </div>
         </div>
